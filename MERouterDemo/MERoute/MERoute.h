@@ -51,9 +51,12 @@ typedef NS_ENUM(NSUInteger, MERouteActionType) {
 
 -(void)cacheObjectRemoveWithID:(NSString *)ID;
 
+//action 对于有参数的方法  需要带上:
 -(id)routeHandleWithType:(MERouteActionType)type targetName:(NSString *)targetName action:(NSString *)action prama:(id)prama andCallBack:(void(^)(id response))callBack;
 
 -(void)recevieCallBackWith:(NSString *)Id withResponse:(id)response idDele:(BOOL)dele;
+
+-(id)routeActionWithTargetName:(NSString *)targetName action:(NSString *)action prama:(id)prama;
 
 //给实例的属性赋值   block是一种特殊的属性
 -(void)routeSetPropertyWithTargetName:(NSString *)targetName propretyName:(NSString *)propretyName and:(id)proprety;

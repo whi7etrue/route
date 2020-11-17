@@ -354,8 +354,6 @@
 
 -(id)objectResponseAction:(MERouteRequest *)request{
     
-    SEL sele = NSSelectorFromString(request.actionName);
-    
     BOOL isExist = NO;
     id object;
     
@@ -387,7 +385,7 @@
     
     if (isExist) {
         
-        return [self safePerformAction:sele target:object params:request.prama];
+        return [self safePerformAction:request.actionName target:object params:request.prama];
     }else{
         
         //调用不存在对象的方法  处理方法由业务决定
@@ -404,71 +402,117 @@
     return nil;
 }
 
-- (id)safePerformAction:(SEL)action target:(NSObject *)target params:(id)params
+- (id)safePerformAction:(NSString *)actionName target:(NSObject *)target params:(id)params
 {
+    SEL action = NSSelectorFromString(actionName);
+    
     NSMethodSignature* methodSig = [target methodSignatureForSelector:action];
     if(methodSig == nil) {
+        NSLog(@"method not found");
         return nil;
     }
     const char* retType = [methodSig methodReturnType];
     
-    if (strcmp(retType, @encode(void)) == 0) {
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&params atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        return nil;
+    id result = nil;
+    if(methodSig.numberOfArguments > 2){
+        
+        const char* argument = [methodSig getArgumentTypeAtIndex:2];
+        
+        result = [self handleBaseDataAction:action target:target params:params paramsType:argument returnType:retType methodSignature:methodSig];
+    }else{
+        
+        result = [self handleBaseDataAction:action target:target params:params paramsType:@encode(void) returnType:retType methodSignature:methodSig];
     }
-    
-    if (strcmp(retType, @encode(NSInteger)) == 0) {
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&params atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        NSInteger result = 0;
-        [invocation getReturnValue:&result];
-        return @(result);
-    }
-    
-    if (strcmp(retType, @encode(BOOL)) == 0) {
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&params atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        BOOL result = 0;
-        [invocation getReturnValue:&result];
-        return @(result);
-    }
-    
-    if (strcmp(retType, @encode(CGFloat)) == 0) {
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&params atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        CGFloat result = 0;
-        [invocation getReturnValue:&result];
-        return @(result);
-    }
-    
-    if (strcmp(retType, @encode(NSUInteger)) == 0) {
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&params atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        NSUInteger result = 0;
-        [invocation getReturnValue:&result];
-        return @(result);
+
+    if (result) {
+        return result;
     }
     
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
     return [target performSelector:action withObject:params];
 #pragma clang diagnostic pop
+}
+
+-(id)routeActionWithTargetName:(NSString *)targetName action:(NSString *)action prama:(id)prama{
+    
+    return [self safePerformAction:action target:targetName params:prama];
+}
+
+-(id)handleBaseDataAction:(SEL)action target:(NSObject *)target params:(id)params paramsType:(const char*)paramsType returnType:(const char*)returnType methodSignature:(NSMethodSignature *)methodSig{
+    
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
+    
+    /*
+     参数和返回值 对基本数据类型 都需要特殊处理  基本数据类型包括
+     char、unsignedchar、short、unsignedshort、
+     int、unsignedint、long、unsignedlong、
+     float、double、bool、interger、unsignedinterger
+     
+     暂时只处理几个
+     */
+    
+    if (strcmp(paramsType, @encode(void)) == 0) {
+        [invocation setArgument:&params atIndex:methodSig.numberOfArguments-1];
+    }
+    
+    if (strcmp(paramsType, @encode(int)) == 0) {
+        NSNumber *number = (NSNumber *)params;
+        int intParams = number.intValue;
+        [invocation setArgument:&intParams atIndex:methodSig.numberOfArguments-1];
+    }
+    
+    if (strcmp(paramsType, @encode(NSInteger)) == 0) {
+        NSNumber *number = (NSNumber *)params;
+        NSInteger intParams = number.integerValue;
+        [invocation setArgument:&intParams atIndex:methodSig.numberOfArguments-1];
+    }
+    
+    if (strcmp(paramsType, @encode(BOOL)) == 0) {
+        NSNumber *number = (NSNumber *)params;
+        BOOL boolParams = number.boolValue;
+        [invocation setArgument:&boolParams atIndex:methodSig.numberOfArguments-1];
+    }
+    
+    if (strcmp(paramsType, @encode(CGFloat)) == 0) {
+        NSNumber *number = (NSNumber *)params;
+        CGFloat floatParams = number.floatValue;
+        [invocation setArgument:&floatParams atIndex:methodSig.numberOfArguments-1];
+    }
+    
+    [invocation setSelector:action];
+    [invocation setTarget:target];
+    [invocation invoke];
+    
+    if (strcmp(returnType, @encode(void)) == 0){
+        return @"";
+    }
+    
+    if (strcmp(returnType, @encode(int)) == 0){
+        int result = 0;
+        [invocation getReturnValue:&result];
+        return @(result);
+    }
+    
+    if (strcmp(returnType, @encode(NSInteger)) == 0){
+        NSInteger result = 0;
+        [invocation getReturnValue:&result];
+        return @(result);
+    }
+    
+    if (strcmp(returnType, @encode(BOOL)) == 0){
+        BOOL result = 0;
+        [invocation getReturnValue:&result];
+        return @(result);
+    }
+    
+    if (strcmp(returnType, @encode(CGFloat)) == 0){
+        CGFloat result = 0;
+        [invocation getReturnValue:&result];
+        return @(result);
+    }
+    
+    return nil;
 }
 
 -(void)recevieCallBackWith:(NSString *)Id withResponse:(id)response idDele:(BOOL)dele{
@@ -508,7 +552,7 @@
     
     if (object) {
         
-        return [self safePerformAction:sele target:object params:nil];
+        return [self safePerformAction:propretyName target:object params:nil];
     }else{
         
         //调用不存在对象的方法  处理方法由业务决定
@@ -550,7 +594,7 @@
             [self SetPropertyAction:sele target:object params:handle];
         }else{
             
-            [self safePerformAction:sele target:object params:handle];
+            [self safePerformAction:methodName target:object params:handle];
         }
         
     }else{
@@ -582,64 +626,10 @@
     
     const char* argument = [methodSig getArgumentTypeAtIndex:2];
     
-    if (strcmp(argument, @encode(BOOL)) == 0) {
-        
-        NSNumber *number = (NSNumber *)params;
-        
-        BOOL index = number.boolValue;
-        
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&index atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        
-        return;
-    }
+    id result = [self handleBaseDataAction:action target:target params:params paramsType:argument returnType:@encode(void) methodSignature:methodSig];
     
-    if (strcmp(argument, @encode(NSInteger)) == 0) {
-        
-        NSNumber *number = (NSNumber *)params;
-        
-        NSInteger index = number.integerValue;
-        
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&index atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        
-        return;
-    }
-    
-    if (strcmp(argument, @encode(CGFloat)) == 0) {
-        
-        NSNumber *number = (NSNumber *)params;
-        
-        CGFloat index = number.floatValue;
-        
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&index atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        
-        return;
-    }
-    
-    if (strcmp(argument, @encode(int)) == 0) {
-        
-        NSNumber *number = (NSNumber *)params;
-        
-        int index = number.intValue;
-        
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSig];
-        [invocation setArgument:&index atIndex:methodSig.numberOfArguments-1];
-        [invocation setSelector:action];
-        [invocation setTarget:target];
-        [invocation invoke];
-        
-        return;
+    if (result) {
+        return ;
     }
     
 #pragma clang diagnostic push

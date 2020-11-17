@@ -61,9 +61,13 @@ static NSInteger classIndex;
     [self.view addSubview:pushBtn];
 }
 
+
+
 -(void)pushButtonDidClick{
     
     [[MERoute shareRoute] routeHandleWithType:MERouteActionType_push targetName:MRRedViewController action:nil prama:nil andCallBack:nil];
+    
+    [[MERoute shareRoute] routeHandleWithType:MERouteActionType_action targetName:MRRedViewController action:@"testAction:" prama:@(1) andCallBack:nil];
 }
 
 -(void)dealloc{

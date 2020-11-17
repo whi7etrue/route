@@ -17,6 +17,8 @@ typedef void(^testHandle)(void);
 
 @property (nonatomic ,copy) testHandle handle;
 
+@property (nonatomic ,assign) int index;
+
 @end
 
 @implementation RedViewController
@@ -47,6 +49,10 @@ typedef void(^testHandle)(void);
         
     };
     
+}
+
+-(void)testAction:(NSInteger)a{
+    NSLog(@"route use string action : %d",a);
 }
 
 -(void)pushButtonDidClick{
